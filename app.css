@@ -478,3 +478,11 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 12px; }
 .login-card form { display: grid; gap: 14px; }
 .login-card input { width: 100%; min-height: 44px; font-size: 16px; border: 1px solid #ccd6e2; border-radius: 8px; padding: 10px 12px; box-sizing: border-box; }
 .login-card button { min-height: 44px; }
+
+.field-filter-rule .record-picker-clear { width: 27px; height: 27px; min-height: 0; padding: 0; }
+.field-filter-rule .record-picker-option { height: auto; min-height: 38px; }
+.field-filter-rule .record-picker-list { z-index: 15; }
+.field-filter-rule:focus-within { position: relative; z-index: 16; }
+@media (max-width: 700px) {
+  .field-filter-rule > .filter-value-picker { grid-column: 1 / 3; }
+}

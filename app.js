@@ -354,12 +354,32 @@ function createFieldFilter(kind, label, getRows, getFields, onChange) {
       option('', '请选择', rule.value) + option('是', '是', rule.value) + option('否', '否', rule.value) + '</select>';
     const date = field?.type === 'date' || ['before', 'onBefore', 'after', 'onAfter'].includes(rule.op);
     const numeric = field?.type === 'number' || ['gt', 'gte', 'lt', 'lte'].includes(rule.op);
-    const values = field ? [...new Set(getRows().flatMap(row => filterAtoms(field.get(row))))].filter(value => value.length <= 150).sort(sortCollator.compare).slice(0, 200) : [];
-    const listId = 'filter-' + kind + '-values-' + index;
     return '<input data-filter-part="value" aria-label="' + aria + '" type="' + (date ? 'date' : numeric ? 'number' : 'text') +
-      '"' + (numeric ? ' step="any"' : '') + (!date && !numeric ? ' list="' + listId + '"' : '') + ' value="' + esc(rule.value) +
-      '" placeholder="' + (numeric ? '填写数值' : '选择或输入筛选值') + '">' +
-      (!date && !numeric ? '<datalist id="' + listId + '">' + values.map(value => option(value, value, '')).join('') + '</datalist>' : '');
+      '"' + (numeric ? ' step="any"' : ' autocomplete="off"') + ' value="' + esc(rule.value) +
+      '" placeholder="' + (numeric ? '填写数值' : '输入关键词匹配词条') + '">';
+  }
+  function mountSearchInputs() {
+    for (const select of root.querySelectorAll('[data-filter-part="field"]')) {
+      for (const option of select.options) {
+        if (option.parentElement.tagName === 'OPTGROUP') option.dataset.detail = option.parentElement.label;
+      }
+      mountRecordPicker(select, select.getAttribute('aria-label'), { placeholder: '输入关键词搜索字段', selectOnFocus: true });
+      select.nextElementSibling.classList.add('filter-field-picker');
+    }
+    for (const input of root.querySelectorAll('input[data-filter-part="value"][type="text"]')) {
+      const index = Number(input.closest('[data-filter-index]').dataset.filterIndex);
+      const field = definitions.get(configuration.rules[index].field);
+      mountRecordPicker(input, input.getAttribute('aria-label'), {
+        freeText: true, limit: 100, placeholder: '输入关键词匹配词条',
+        options: () => (field ? [...new Set(getRows().flatMap(row => filterAtoms(field.get(row))))] : [])
+          .sort(sortCollator.compare).map(value => new Option(value, value)),
+      });
+      input.nextElementSibling.classList.add('filter-value-picker');
+    }
+  }
+  function focusPart(index, part) {
+    const control = root.querySelector('[data-filter-index="' + index + '"] [data-filter-part="' + part + '"]');
+    (control?.hidden ? control.nextElementSibling?.querySelector('input') : control)?.focus();
   }
   function render() {
     definitions = new Map(getFields().map(field => [field.key, field]));
@@ -379,6 +399,7 @@ function createFieldFilter(kind, label, getRows, getFields, onChange) {
           '</select><select data-filter-part="op" aria-label="' + esc(label + '筛选条件 ' + (index + 1)) + '">' + operators.map(op => option(op, filterOperators[op], rule.op)).join('') +
           '</select>' + valueInput(rule, field, index) + '<button type="button" class="icon-button" data-filter-remove aria-label="' + esc('删除' + label + '筛选条件 ' + (index + 1)) + '">×</button></div>';
       }).join('') + '</div>' : '');
+    mountSearchInputs();
   }
   function changed(redraw = true) { save(); if (redraw) render(); onChange(); }
   const controller = {
@@ -391,7 +412,7 @@ function createFieldFilter(kind, label, getRows, getFields, onChange) {
       const field = definitions.get(kind === 'si' ? 'sales' : kind === 'kpi' ? 'status' : 'stage') || definitions.values().next().value;
       if (!field || configuration.rules.length >= 40) return;
       configuration.rules.push({ field: field.key, op: ['boolean', 'date', 'number'].includes(field.type) ? 'eq' : 'contains', value: '' });
-      changed(); root.querySelector('[data-filter-index="' + (configuration.rules.length - 1) + '"] select')?.focus();
+      changed(); focusPart(configuration.rules.length - 1, 'field');
     }
     if (event.target.closest('[data-filter-clear]')) controller.clear();
     if (event.target.closest('[data-filter-remove]')) {
@@ -407,11 +428,12 @@ function createFieldFilter(kind, label, getRows, getFields, onChange) {
     rule[part] = event.target.value;
     if (part === 'field') {
       const field = definitions.get(rule.field);
+      if (!field) { rule.op = 'contains'; rule.value = ''; changed(false); return; }
       rule.op = ['boolean', 'date', 'number'].includes(field.type) ? 'eq' : 'contains'; rule.value = '';
     }
     if (part === 'op') rule.value = '';
     changed(part !== 'value');
-    if (part === 'field' || part === 'op') root.querySelector('[data-filter-index="' + index + '"] [data-filter-part="' + part + '"]')?.focus();
+    if (part === 'field' || part === 'op') focusPart(index, part);
   });
   root.addEventListener('input', event => {
     if (event.target.dataset.filterPart !== 'value' || event.target.tagName !== 'INPUT') return;
@@ -1073,23 +1095,23 @@ function recordOptions(rows) {
   });
 }
 
-function mountRecordPicker(select, label) {
+function mountRecordPicker(select, label, settings = {}) {
   let picker = recordPickers.get(select);
   if (!picker) {
-    picker = createRecordPicker(select, label);
+    picker = createRecordPicker(select, label, settings);
     recordPickers.set(select, picker);
   }
   picker.refresh();
 }
 
-function createRecordPicker(select, label) {
+function createRecordPicker(select, label, settings = {}) {
   const id = 'record-options-' + ++recordPickerId;
   const wrapper = document.createElement('div');
   wrapper.className = 'record-picker';
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'record-picker-input';
-  input.placeholder = '输入字母或名称搜索';
+  input.placeholder = settings.placeholder || '输入字母或名称搜索';
   input.autocomplete = 'off';
   input.spellcheck = false;
   input.setAttribute('role', 'combobox');
@@ -1121,7 +1143,7 @@ function createRecordPicker(select, label) {
   let composing = false;
 
   function validate() {
-    const unselected = input.value.trim() && !select.value;
+    const unselected = !settings.freeText && input.value.trim() && !select.value;
     input.setCustomValidity(unselected ? '请从匹配结果中选择记录。' : '');
     clear.hidden = !input.value && !select.value;
   }
@@ -1147,7 +1169,7 @@ function createRecordPicker(select, label) {
 
   function choose(option) {
     select.value = option?.value || '';
-    input.value = option?.value ? option.label : '';
+    input.value = option?.value ? (settings.freeText ? option.value : option.label) : '';
     validate();
     close();
     select.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1160,6 +1182,7 @@ function createRecordPicker(select, label) {
     matches = options.filter(option => (!required || option.value) &&
       terms.every(term => option.search.includes(term)));
     if (query) matches.sort((a, b) => Number(fold(b.label).startsWith(query)) - Number(fold(a.label).startsWith(query)));
+    if (settings.limit) matches = matches.slice(0, settings.limit);
     list.replaceChildren();
     active = -1;
     input.removeAttribute('aria-activedescendant');
@@ -1186,7 +1209,7 @@ function createRecordPicker(select, label) {
     if (!matches.length) {
       const empty = document.createElement('div');
       empty.className = 'record-picker-empty';
-      empty.textContent = '没有匹配的记录，请换个关键词。';
+      empty.textContent = settings.freeText ? '没有匹配词条，可继续输入关键词。' : '没有匹配的记录，请换个关键词。';
       list.append(empty);
     }
     list.hidden = false;
@@ -1195,14 +1218,14 @@ function createRecordPicker(select, label) {
   }
 
   function search() {
-    select.value = '';
+    select.value = settings.freeText ? input.value : '';
     validate();
     select.dispatchEvent(new Event('input', { bubbles: true }));
     select.dispatchEvent(new Event('change', { bubbles: true }));
     show();
   }
 
-  input.addEventListener('focus', show);
+  input.addEventListener('focus', () => { if (settings.selectOnFocus) input.select(); show(); });
   input.addEventListener('click', () => { if (list.hidden) show(); });
   input.addEventListener('input', () => { if (!composing) search(); });
   input.addEventListener('compositionstart', () => { composing = true; });
@@ -1216,7 +1239,8 @@ function createRecordPicker(select, label) {
         (active + 1) % matches.length : (active <= 0 ? matches.length - 1 : active - 1));
     } else if (event.key === 'Enter' && !list.hidden) {
       event.preventDefault();
-      if (matches.length) choose(matches[active < 0 ? 0 : active]);
+      if (matches.length && (!settings.freeText || active >= 0)) choose(matches[active < 0 ? 0 : active]);
+      else close();
     } else if (event.key === 'Escape' && !list.hidden) {
       event.preventDefault();
       event.stopPropagation();
@@ -1234,12 +1258,12 @@ function createRecordPicker(select, label) {
       required = select.required;
       select.required = false;
       input.required = required;
-      input.disabled = select.disabled || select.closest('label').hidden;
-      options = [...select.options].map(option => ({
+      input.disabled = select.disabled || Boolean(select.closest('label')?.hidden);
+      options = (settings.options ? settings.options() : [...select.options]).map(option => ({
         value: option.value, label: option.textContent, detail: option.dataset.detail || '',
         search: fold([option.textContent, option.dataset.search].filter(Boolean).join(' ')),
       }));
-      input.value = select.value ? select.selectedOptions[0]?.textContent || '' : '';
+      input.value = settings.freeText ? select.value : (select.value ? select.selectedOptions[0]?.textContent || '' : '');
       close();
       validate();
     },
