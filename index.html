@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Yanghai 的法国 SI、项目和 KPI 看板">
+  <title>法国中腰部SI推进看板</title>
+  <link rel="stylesheet" href="./app.css">
+  <script src="./app.js" type="module"></script>
+</head>
+<body><section id="login-screen" class="login-screen"><div class="login-card">
+<h1>法国 SI 推进看板</h1><form id="login-form"><label for="login-email">登录邮箱</label>
+<input id="login-email" type="email" autocomplete="email" required placeholder="请输入授权邮箱">
+<p id="login-hint" class="minor">通过邮箱中的一次性链接登录，在不同电脑查看和更新同一份看板。</p><p id="login-error" class="error" role="alert"></p>
+<button id="send-link" type="submit" class="primary">发送登录链接</button></form></div></section><div id="dashboard" hidden>
+  <a class="skip" href="#main">跳到客户看板</a>
+  <header class="bar">
+    <div class="bar-inner">
+      <a class="brand" href="./" aria-label="法国中腰部 SI 首页">
+        <span class="brand-icon" data-icon="cube"></span>
+        <span>法国 SI<span class="brand-divider"></span><small>客户推进</small></span>
+      </a>
+      <span class="private"><span data-icon="lock"></span> 仅自己可访问</span><button id="logout" type="button" class="quiet">退出登录</button>
+    </div>
+  </header>
+
+  <main id="main" class="frame">
+    <section class="intro" aria-labelledby="title">
+      <div>
+        <div class="region"><span class="flag" aria-hidden="true"></span> YEALINK FRANCE</div>
+        <h1 id="title">法国中腰部 SI 推进看板</h1>
+        <p>Yanghai 负责的 SI 和项目记录。</p>
+      </div>
+      <button type="button" id="sources-trigger" class="outline"><span data-icon="layers"></span> 资料与口径</button>
+    </section>
+
+    <nav class="workspaces" aria-label="看板切换">
+      <a href="#si-board" id="tab-si" aria-current="page"><span data-icon="users"></span> 我的 SI <span class="tab-count" id="tab-si-count"></span></a>
+      <a href="#project-board" id="tab-projects"><span data-icon="file"></span> 我的项目 <span class="tab-count" id="tab-project-count"></span></a>
+      <a href="#consultation-board" id="tab-consultations"><span data-icon="layers"></span> 方案咨询 <span class="tab-count" id="tab-consultation-count"></span></a>
+      <a href="#kpi-board" id="tab-kpi"><span data-icon="flag"></span> KPI <span class="tab-count">Q4</span></a>
+    </nav>
+
+    <div id="si-board">
+    <section class="panel" aria-labelledby="list-title">
+      <div class="section-title">
+        <div><h2 id="list-title">客户列表</h2><span id="count-results" class="result-total" aria-live="polite"></span></div>
+        <button type="button" id="add-si" class="primary" disabled data-add="si">＋ 添加 SI</button>
+      </div>
+      <div class="controls">
+        <label class="search"><span data-icon="search"></span><span class="sr-only">搜索客户、产品或项目</span><input id="search" type="search" placeholder="搜客户、产品或项目" autocomplete="off"></label>
+        <button type="button" id="clear" class="quiet">清除筛选</button>
+        <div class="sort-controls">
+          <label><span>排序</span><select id="sort-field" aria-label="SI排序字段" disabled><option value="">默认顺序</option></select></label>
+          <button type="button" id="sort-direction" class="outline" disabled>↑ 升序</button>
+        </div>
+      </div>
+      <div id="filter-si" class="field-filter" aria-label="SI自定义筛选"></div>
+      <div id="list">
+        <div class="empty" role="status">正在加载客户资料…</div>
+      </div>
+      <div class="pagination" id="pagination" hidden>
+        <span id="pages"></span>
+        <div><button id="previous" type="button" class="outline">上一页</button><button id="next-page" type="button" class="outline">下一页</button></div>
+      </div>
+    </section>
+    </div>
+
+    <div id="project-board" hidden>
+      <section class="panel project-panel" aria-labelledby="project-list-title">
+        <div class="section-title">
+          <div><h2 id="project-list-title">项目列表</h2><span id="project-result-count" class="result-total" aria-live="polite"></span></div>
+          <button type="button" id="add-project" class="primary" disabled data-add="project">＋ 添加项目</button>
+        </div>
+        <div class="project-archive-filter"><button type="button" id="project-archive-toggle" class="outline" aria-pressed="false" disabled>归档项目（0）</button><span id="project-archive-description">默认显示未归档项目</span></div>
+        <div class="controls">
+          <label class="search"><span data-icon="search"></span><span class="sr-only">搜索项目、SI 或机型</span><input id="project-search" type="search" placeholder="搜项目、SI 或机型" autocomplete="off"></label>
+        <button type="button" id="project-reset" class="quiet">清除筛选</button>
+          <div class="sort-controls">
+            <label><span>排序</span><select id="project-sort-field" aria-label="项目排序字段" disabled><option value="">默认顺序</option></select></label>
+            <button type="button" id="project-sort-direction" class="outline" disabled>↑ 升序</button>
+          </div>
+        </div>
+      <div id="filter-project" class="field-filter" aria-label="项目自定义筛选"></div>
+        <div id="project-list"><div class="empty" role="status">正在加载项目资料…</div></div>
+        <div id="project-pagination" class="pagination" hidden>
+          <span id="project-pages"></span>
+          <div><button id="project-previous" type="button" class="outline">上一页</button><button id="project-next" type="button" class="outline">下一页</button></div>
+        </div>
+      </section>
+    </div>
+    <div id="consultation-board" hidden>
+      <section class="panel consultation-panel" aria-labelledby="consultation-list-title">
+        <div class="section-title">
+          <div><h2 id="consultation-list-title">方案咨询</h2><span id="consultation-result-count" class="result-total" aria-live="polite"></span></div>
+          <button type="button" id="add-consultation" class="primary" disabled data-add="consultation">＋ 记录方案咨询</button>
+        </div>
+        <p class="consultation-intro">记录客户需求与方案建议，持续跟进，机会明确后转为项目。</p>
+        <div class="controls">
+          <label class="search"><span data-icon="search"></span><span class="sr-only">搜索方案、客户、SI 或产品</span><input id="consultation-search" type="search" placeholder="搜方案、客户、SI 或产品" autocomplete="off"></label>
+          <button type="button" id="consultation-reset" class="quiet">清除筛选</button>
+          <div class="sort-controls"><label><span>排序</span><select id="consultation-sort-field" aria-label="方案咨询排序字段" disabled><option value="">默认顺序</option></select></label><button type="button" id="consultation-sort-direction" class="outline" disabled>↑ 升序</button></div>
+        </div>
+        <div id="filter-consultation" class="field-filter" aria-label="方案咨询自定义筛选"></div>
+        <div id="consultation-list"><div class="empty">正在加载方案咨询…</div></div>
+        <div id="consultation-pagination" class="pagination" hidden><span id="consultation-pages"></span><div><button id="consultation-previous" type="button" class="outline">上一页</button><button id="consultation-next" type="button" class="outline">下一页</button></div></div>
+      </section>
+    </div>
+    <div id="kpi-board" hidden>
+      <section class="kpi-intro" aria-labelledby="kpi-title">
+        <div><h2 id="kpi-title">2026 Q4 KPI</h2><p>10 月 1 日—12 月 31 日</p></div>
+        <div class="actions"><button id="kpi-indicator-add" type="button" class="outline" disabled>＋ 添加指标</button><button id="kpi-add" type="button" class="primary" disabled>＋ 登记贡献</button></div>
+      </section>
+      <div id="kpi-summary" class="kpi-summary" aria-live="polite"></div>
+      <p class="kpi-note">完成度按已确认、达成日期属于 Q4 的贡献计算。参考线索可补充依据后确认，同一项目或 SI 在同项计数指标中计一次。项目赢单自动汇总 50V 和 10V 两项。</p>
+      <div class="kpi-toolbar">
+        <label class="search"><span class="sr-only">搜索 KPI 或贡献项目</span><input id="kpi-search" type="search" placeholder="搜指标、项目或 SI" autocomplete="off"></label>
+        <button id="kpi-reset" type="button" class="quiet">清除筛选</button>
+        <label><span class="sr-only">KPI 排序</span><select id="kpi-sort"><option value="">默认顺序</option><option value="low">完成率从低到高</option><option value="high">完成率从高到低</option></select></label>
+      </div>
+      <div id="filter-kpi" class="field-filter kpi-field-filter" aria-label="KPI自定义筛选"></div>
+      <div id="kpi-cards" class="kpi-grid"><div class="empty">正在加载 KPI…</div></div>
+    </div>
+  </main>
+
+  <dialog id="details" class="drawer" aria-labelledby="drawer-title">
+    <div class="drawer-layout">
+      <div class="drawer-top detail-toolbar"><div class="detail-navigation"><button id="details-back" type="button" class="quiet detail-back" hidden></button><span id="drawer-category"></span></div><div class="actions"><button id="details-edit" type="button" class="outline">编辑</button><button id="details-close" type="button" class="icon-button" aria-label="关闭详情" data-icon="close"></button></div></div>
+      <div id="drawer-content"></div>
+    </div>
+  </dialog>
+  <dialog id="editor" class="drawer editor" aria-labelledby="editor-title">
+    <div class="drawer-layout">
+      <div class="drawer-top"><span>编辑资料</span><button id="editor-close" type="button" class="icon-button" aria-label="关闭编辑" data-icon="close"></button></div>
+      <form id="record-form">
+        <div class="drawer-heading"><h2 id="editor-title"></h2></div>
+        <div id="editor-fields"></div>
+        <div class="editor-actions">
+          <p id="editor-error" class="error" role="alert" hidden></p>
+          <div class="actions"><button type="button" class="outline" id="editor-cancel">取消</button><button type="submit" class="primary" id="editor-save">保存</button></div>
+        </div>
+      </form>
+    </div>
+  </dialog>
+  <dialog id="delete-record" class="source-dialog" aria-labelledby="delete-title">
+    <header><h2 id="delete-title">删除记录</h2></header>
+    <div class="confirm-body">
+      <p id="delete-text"></p><p id="delete-error" class="error" role="alert" hidden></p>
+      <div class="actions"><button type="button" id="delete-cancel" class="outline">取消</button><button type="button" id="delete-confirm" class="danger">确认删除</button></div>
+    </div>
+  </dialog>
+  <dialog id="kpi-detail" class="drawer" aria-labelledby="kpi-detail-title">
+    <div class="drawer-top"><span>KPI 详情</span><button id="kpi-detail-close" type="button" class="icon-button" aria-label="关闭 KPI 详情" data-icon="close"></button></div>
+    <div id="kpi-detail-content"></div>
+  </dialog>
+  <dialog id="kpi-entry" class="drawer editor" aria-labelledby="kpi-entry-title">
+    <div class="drawer-top"><span>贡献记录</span><button id="kpi-entry-close" type="button" class="icon-button" aria-label="关闭贡献编辑" data-icon="close"></button></div>
+    <form id="kpi-entry-form">
+      <div class="drawer-heading"><h2 id="kpi-entry-title">登记贡献</h2></div>
+      <div id="kpi-entry-fields" class="edit-grid kpi-form"></div>
+      <div class="editor-actions">
+        <p id="kpi-entry-error" class="error" role="alert" hidden></p>
+        <div class="actions"><button type="button" class="outline" id="kpi-entry-cancel">取消</button><button type="submit" class="primary" id="kpi-entry-save">保存贡献</button></div>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="kpi-delete" class="source-dialog" aria-labelledby="kpi-delete-title">
+    <header><h2 id="kpi-delete-title">删除贡献记录</h2></header>
+    <div class="confirm-body"><p>删除后，该记录将从 KPI 完成情况中移除。</p><p id="kpi-delete-error" class="error" role="alert" hidden></p>
+      <div class="actions"><button id="kpi-delete-cancel" class="outline" type="button">取消</button><button id="kpi-delete-confirm" class="danger" type="button">确认删除贡献</button></div>
+    </div>
+  </dialog>
+  <dialog id="kpi-indicator-editor" class="drawer editor" aria-labelledby="kpi-indicator-title">
+    <div class="drawer-top"><span>KPI 指标</span><button type="button" id="kpi-indicator-close" class="icon-button" aria-label="关闭指标编辑" data-icon="close"></button></div>
+    <form id="kpi-indicator-form">
+      <div class="drawer-heading"><h2 id="kpi-indicator-title"></h2></div>
+      <div id="kpi-indicator-fields" class="edit-grid kpi-form"></div>
+      <div class="editor-actions">
+        <p id="kpi-indicator-error" class="error" role="alert" hidden></p>
+        <div class="actions"><button type="button" id="kpi-indicator-remove" class="quiet danger-text">删除指标</button><button type="button" id="kpi-indicator-cancel" class="outline">取消</button><button type="submit" id="kpi-indicator-save" class="primary">保存指标</button></div>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="kpi-indicator-delete" class="source-dialog" aria-labelledby="kpi-indicator-delete-title">
+    <header><h2 id="kpi-indicator-delete-title">删除 KPI 指标</h2></header>
+    <div class="confirm-body"><p id="kpi-indicator-delete-text"></p><p id="kpi-indicator-delete-error" class="error" role="alert" hidden></p>
+      <div class="actions"><button type="button" id="kpi-indicator-delete-cancel" class="outline">取消</button><button type="button" id="kpi-indicator-delete-confirm" class="danger">确认删除指标</button></div>
+    </div>
+  </dialog>
+  <div id="notice" class="notice" role="status" hidden></div>
+  <dialog id="sources" class="source-dialog" aria-labelledby="sources-title">
+    <header><h2 id="sources-title">资料与口径</h2><button id="sources-close" class="icon-button" type="button" aria-label="关闭资料与口径" data-icon="close"></button></header>
+    <div id="sources-content"></div>
+  </dialog>
+</div></body>
+</html>
