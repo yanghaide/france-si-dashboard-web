@@ -5,6 +5,7 @@ const readSession = () => { try { return JSON.parse(localStorage.getItem(storage
 const storeSession = session => localStorage.setItem(storageKey, JSON.stringify(session));
 let activeRefresh;
 export let accessScope='full';
+export let canDeleteRecords=false;
 
 async function authCall(path, body) {
   const response = await fetch(config.url + '/auth/v1/' + path, {
@@ -94,7 +95,7 @@ export async function ready() {
   try {
     if (await session()) {
       const response=await authorizedFetch('/api/session');if(!response.ok)throw Error('该账号没有看板访问权限。');
-      accessScope=(await response.json()).scope;
+      const sessionInfo=await response.json();accessScope=sessionInfo.scope;canDeleteRecords=sessionInfo.canDelete===true;
       if(accessScope==='upsell'){
         for(const id of ['tab-si','tab-projects','tab-consultations','tab-kpi'])document.getElementById(id).hidden=true;
         document.getElementById('title').textContent='Upsell 跟进看板';
