@@ -109,19 +109,7 @@ const fields = {
 const allFields = kind => fields[kind].flatMap(([, group]) => group);
 
 const kpiPeriod = { label: '2026 Q4', start: '2026-10-01', end: '2026-12-31' };
-const kpiDefinitions = [
-  { id: 'wins', name: '项目赢单', target: 5, entity: 'project', children: ['wins_50v', 'wins_10v'], rule: '项目赢单 = 50V项目赢单 + 10V项目赢单，目标、完成数和贡献明细自动汇总。' },
-  { id: 'wins_50v', name: '50V项目赢单', target: 3, entity: 'project', rule: '核实 50V 项目规模口径、Q4 赢单日期及依据。' },
-  { id: 'wins_10v', name: '10V项目赢单', target: 2, entity: 'project', rule: '核实 10V 项目规模口径、Q4 赢单日期及依据。' },
-  { id: 'proav', name: 'ProAV有效项目', target: 2, entity: 'project', rule: '记录 ProAV 需求、有效项目依据及 Q4 达成日期。' },
-  { id: 'p1_p2', name: 'P1推进至P2及以上', target: 6, entity: 'project', rule: '记录原 P1 阶段、Q4 推进至 P2 或以上的日期及依据。' },
-  { id: 'focus_new', name: '重点SI有效新项目', target: 7, entity: 'project', rule: '确认对应重点 SI、Q4 新增及有效项目依据。' },
-  { id: 'mbc_si', name: 'MB-C测试或认可SI', target: 3, entity: 'si', rule: '确认 Q4 的 MB-C 测试或认可情况，同一 SI 计一次。' },
-  { id: 'video_active', name: 'Video Upsell新增激活项目', target: 1, entity: 'project', rule: '确认 Q4 新增激活日期、产品及项目依据。' },
-  { id: 'video_import', name: 'Video Upsell新增导入项目', target: 8, entity: 'project', rule: '确认 Q4 新增导入日期、产品及项目依据。' },
-  { id: 'headset_active', name: '耳机Upsell激活项目', target: 7, entity: 'project', rule: '确认 Q4 耳机 Upsell 激活日期、产品及项目依据。' },
-  { id: 'service_revenue', name: '服务销售额', target: 61, entity: 'amount', unit: '万人民币', rule: '按万人民币录入 Q4 已确认服务销售额，保留订单、POS 或销售核对依据。' },
-];
+const kpiDefinitions = [];
 const kpiNumber = value => new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 6 }).format(value);
 const kpiPercent = (value, target) => target > 0 ? new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(value / target * 100) : '0';
 const kpiToday = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
@@ -833,6 +821,7 @@ function applyBoardData(data) {
     renderBoard(kind);
   }
   updateKpiData(data.kpi);
+  upRenderGoals();
 }
 
 function loadError(error) {
@@ -846,7 +835,8 @@ function loadError(error) {
 
 function showWorkspace(kind, push = false) {
   state.tab = kind;
-  const tabs = { si: ['si-board', 'tab-si'], project: ['project-board', 'tab-projects'], consultation: ['consultation-board', 'tab-consultations'], kpi: ['kpi-board', 'tab-kpi'] };
+  if (kind === 'upsell' && !up.loaded) loadUpsell();
+  const tabs = { upsell: ['upsell-board','tab-upsell'], si: ['si-board', 'tab-si'], project: ['project-board', 'tab-projects'], consultation: ['consultation-board', 'tab-consultations'], kpi: ['kpi-board', 'tab-kpi'] };
   const id = tabs[kind][0];
   if (push && location.hash !== '#' + id) history.pushState(null, '', '#' + id);
   for (const [name, [boardId, tabId]] of Object.entries(tabs)) {
@@ -1031,6 +1021,7 @@ function initApp() {
     element(info.prefix + 'previous').addEventListener('click', () => { info.page--; renderBoard(kind); });
     element(kind === 'si' ? 'next-page' : info.prefix + 'next').addEventListener('click', () => { info.page++; renderBoard(kind); });
   }
+  element('tab-upsell').addEventListener('click', event => { event.preventDefault(); showWorkspace('upsell', true); });
   element('tab-si').addEventListener('click', event => { event.preventDefault(); showWorkspace('si', true); });
   element('tab-projects').addEventListener('click', event => { event.preventDefault(); showWorkspace('project', true); });
   element('tab-kpi').addEventListener('click', event => { event.preventDefault(); showWorkspace('kpi', true); });
@@ -1039,7 +1030,7 @@ function initApp() {
     boards.project.archived = !boards.project.archived;
     refreshFilters('project');
   });
-  const fromHash = () => showWorkspace(({ '#project-board': 'project', '#consultation-board': 'consultation', '#kpi-board': 'kpi' })[location.hash] || 'si');
+  const fromHash = () => showWorkspace(({ '#upsell-board': 'upsell', '#project-board': 'project', '#consultation-board': 'consultation', '#kpi-board': 'kpi' })[location.hash] || 'si');
   window.addEventListener('popstate', fromHash);
   window.addEventListener('hashchange', fromHash);
   window.addEventListener('focus', scheduleBoardSync);
@@ -1051,7 +1042,7 @@ function initApp() {
     if (details.open) return;
     state.active = null;
     state.detailHistory = [];
-    (state.trigger?.isConnected ? state.trigger : element(state.tab === 'kpi' ? 'kpi-search' : boards[state.tab].searchId)).focus({ preventScroll: true });
+    (state.trigger?.isConnected ? state.trigger : element(state.tab === 'upsell' ? 'up-search' : state.tab === 'kpi' ? 'kpi-search' : boards[state.tab].searchId)).focus({ preventScroll: true });
   });
   details.addEventListener('change', event => {
     const control = event.target.closest('[data-inline-project]');
@@ -1726,6 +1717,82 @@ function initKpiIndicatorEditor() {
   indicatorDelete.addEventListener('cancel', event => { if (indicatorBusy) event.preventDefault(); });
   element('kpi-indicator-delete-confirm').addEventListener('click', deleteKpiIndicator);
 }
+
+import { stages as upStages, labels as upLabels, metrics as upMetrics } from './upsell-model.js';
+const up={rows:[],loaded:false,busy:false,kind:'vc',query:'',owner:'',stage:'',scope:'active',product:'',selected:new Set(),editing:null};
+const upToday=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+const upButton=(text,attrs='',css='outline')=>'<button type="button" class="'+css+'" '+attrs+'>'+text+'</button>';
+const upSelect=(name,values,value,first='全部')=>'<select aria-label="'+esc(name)+'" data-up-filter="'+name+'">'+(first!==null?'<option value="">'+first+'</option>':'')+values.map(v=>'<option value="'+esc(v)+'"'+(v===value?' selected':'')+'>'+esc(v)+'</option>').join('')+'</select>';
+async function upRequest(method='GET',body){const r=await authorizedFetch('/api/upsell',{method,headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});const data=await r.json();if(!r.ok)throw Error(data.error||'保存失败，请重试');return data;}
+async function loadUpsell(){if(up.busy)return;up.busy=true;try{const d=await upRequest();up.rows=d.records;up.loaded=true;up.selected.clear();renderUpsell();}catch(e){element('up-message').textContent=e.message;}finally{up.busy=false;}}
+function upRenderGoals(){
+ const m=upMetrics(up.rows); const goals=state.data?.kpi?.goals||[];
+ element('up-kpis').innerHTML=['headset_active','video_active','video_import','service_revenue'].map(id=>{
+ const g=goals.find(g=>g.id===id);if(!g)return '';
+ const value=({headset_active:m.headset,video_active:m.videoActive,video_import:m.videoImport,service_revenue:m.pos})[id];
+ return '<article class="up-kpi"><span>'+esc(g.name)+'</span>'+kpiProgress(g)+'<p>跟进台账：'+kpiNumber(value)+' '+esc(kpiUnit(g))+'</p>'+upButton('KPI 明细','data-kpi-open="'+id+'"','quiet')+upButton('登记贡献','data-kpi-add="'+id+'"','quiet')+'</article>';
+ }).join('');
+ element('up-summary').innerHTML='<span>CEC 激活 <b>'+m.cec+'</b></span><span>SE 激活 <b>'+m.se+'</b></span><span>逾期待办 <b>'+m.overdue.length+'</b></span><span>未分配 <b>'+m.unassigned.length+'</b></span><span>存量客户 <b>'+new Set(up.rows.filter(r=>r.kind==='vc').map(r=>r.customer)).size+'</b></span>';
+}
+function upRows(){return up.rows.filter(r=>r.kind===up.kind&&(up.scope==='archived'?r.archived:!r.archived)&&(!up.owner||r.owner===up.owner)&&(!up.stage||r.stage===up.stage)&&(!up.product||r.product===up.product)&&(!up.query||fold([r.customer,r.product,r.owner,r.sales,r.next,r.progress,r.newProject,r.oldProject,r.posRef].join(' ')).includes(fold(up.query))));}
+function renderUpsell(){
+ if(!element('up-list'))return;upRenderGoals();
+ document.querySelectorAll('[data-up-kind]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.upKind===up.kind));b.classList.toggle('primary',b.dataset.upKind===up.kind);});
+ const pool=up.rows.filter(r=>r.kind===up.kind);
+ element('up-filters').innerHTML=upSelect('owner',[...new Set(['Yanghai','Yue','Maocheng',...pool.map(r=>r.owner)])].filter(Boolean),up.owner,'全部负责人')+upSelect('stage',upStages[up.kind],up.stage,'全部阶段')+upSelect('product',[...new Set(pool.map(r=>r.product))].filter(Boolean),up.product,'全部产品');
+ const descriptions={cec:'拜访获得意向后转交销售，跟进销售建联及项目激活。',se:'筛选客户、分配 SE、建联确认需求，跟进耳机团队和项目转化。',vc:'每行对应一个客户的产品机会；保留原表 P0–P5 状态，任务可分别分配。',service:'围绕 SI 制定服务推广、网店或项目销售计划，并跟进预计产出。',pos:'按唯一订单/POS编号登记。金额单位：万人民币；确认后汇总 Q4 POS，退款可填负数。'};
+ element('up-description').textContent=descriptions[up.kind];
+ element('up-add').textContent=up.kind==='pos'?'＋ 登记 POS':'＋ 新增'+upLabels[up.kind];
+ const rs=upRows();element('up-count').textContent=rs.length+' 条记录';
+ const bulk=element('up-bulk');bulk.hidden=up.selected.size===0;element('up-selected').textContent='已选 '+up.selected.size+' 条';
+ const cell=x=>'<td>'+x+'</td>';
+ element('up-list').innerHTML=rs.length?'<div class="up-table-scroll"><table class="up-table"><thead><tr><th><input type="checkbox" id="up-all" aria-label="选择当前筛选结果"'+(rs.every(r=>up.selected.has(r.id))?' checked':'')+'></th>'+['客户 / 项目','产品 / 原始信息','负责人 / 销售','当前阶段','最近进展','下一步 / 截止时间','操作'].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rs.map(r=>'<tr>'+cell('<input type="checkbox" data-up-select="'+esc(r.id)+'" aria-label="选择 '+esc(r.customer+' '+r.product)+'"'+(up.selected.has(r.id)?' checked':'')+'>')+cell(upButton(esc(r.customer),'data-up-edit="'+esc(r.id)+'"','name-link')+note(r.kind==='pos'?r.posDate:r.size)+note(r.newProject?'新项目：'+r.newProject:''))+cell(esc(r.product)||'—')+cell(esc(r.owner||'未分配')+note(r.sales?'销售：'+r.sales:''))+cell(pill(r.stage)+note(r.kind==='se'?r.originalStage:''))+cell('<span class="up-wrap">'+esc(r.history?.at(-1)?.text||r.progress||'暂无更新')+'</span>')+cell(r.kind==='pos'?'<strong>'+kpiNumber(r.amount||0)+' 万</strong>'+note(r.posRef):'<span class="up-wrap">'+esc(r.next||'待制定')+'</span>'+(r.due?'<span class="minor '+(r.due<upToday()?'up-overdue':'')+'">'+esc(r.due)+'</span>':''))+cell(upButton('跟进 / 编辑','data-up-edit="'+esc(r.id)+'"','quiet'))+'</tr>').join('')+'</tbody></table></div>':'<div class="empty">'+(up.loaded?'暂无记录，可新增或调整筛选条件。':'正在加载 Upsell 台账…')+'</div>';
+ element('up-message').textContent='';
+}
+function upField(key,label,value='',type='text',opts){
+ let control=opts?'<select name="'+key+'">'+opts.map(v=>'<option'+(v===value?' selected':'')+'>'+esc(v)+'</option>').join('')+'</select>':type==='textarea'?'<textarea name="'+key+'" rows="3">'+esc(value)+'</textarea>':'<input name="'+key+'" type="'+type+'" value="'+esc(value??'')+'"'+(type==='number'?' step="any"':'')+'>';
+ return '<label class="up-field'+(type==='textarea'?' up-wide':'')+'"><span>'+label+'</span>'+control+'</label>';
+}
+function upEdit(row){
+ const r=row?structuredClone(row):{kind:up.kind,stage:upStages[up.kind][0],owner:'Yanghai',history:[]};up.editing=r;
+ element('up-dialog-title').textContent=(row?'跟进 · ':'新增 · ')+(r.customer||upLabels[r.kind]);
+ const f=(k,l,t='text',opts)=>upField(k,l,r[k],t,opts);
+ const isPos=r.kind==='pos';
+ element('up-form-body').innerHTML='<div class="up-form-grid">'+f('customer','客户 / SI 名称')+f('product',isPos?'服务产品':'产品 / 机会')+f('owner','负责人')+f('sales','销售')+f('contact','联系人 / 联系方式')+f('stage','当前阶段','text',upStages[r.kind])+
+ (isPos?f('posDate','POS 日期','date')+f('posRef','唯一订单 / POS 编号')+f('amount','销售额（万人民币）','number')+f('quantity','销量（个）','number')+f('channel','销售来源','text',['','项目服务','网店','其他']):f('next','下一步任务','textarea')+f('due','任务截止时间','date')+f('progress','当前进展 / 障碍','textarea'))+
+ (r.kind==='cec'?f('visitDate','拜访日期','date')+f('handoffDate','转交销售日期','date'):'')+
+ (['cec','se'].includes(r.kind)?f('decisionMaker','耳机与 Video 是否同一决策人','text',['','是','否','未知'])+f('headsetProgress','耳机团队进展','textarea'):'')+
+ (!isPos?f('newProject','新增 Upsell 项目编号')+f('projectUrl','项目链接','url'):'')+
+ (['cec','se','vc'].includes(r.kind)?f('activationDate','本次 Upsell 激活日期','date')+(r.kind==='vc'?f('importDate','本次 Upsell 导入日期','date'):''):'')+
+ (r.kind==='service'?f('expectedAmount','预计产出（万人民币，非实际 POS）','number')+f('channel','计划渠道','text',['','项目服务','网店','其他']):'')+
+ f('evidence','达成 / POS 依据','textarea')+
+ '<label class="up-field up-wide"><span>新增跟进记录（保存后保留历史）</span><textarea name="newHistory" rows="3" placeholder="记录本次沟通结果、任务进展或需要协调的事项"></textarea></label>'+upField('historyDate','记录日期',upToday(),'date')+'<label class="up-field"><span>归档</span><input type="checkbox" name="archived"'+(r.archived?' checked':'')+'></label></div>'+
+ (r.source?'<details class="up-source"><summary>存量项目信息</summary><p>'+esc(r.source)+'</p><p>原项目编号：'+esc(r.oldProject)+' · 原报备：'+esc(r.oldReportDate)+' · 原赢单：'+esc(r.oldWinDate)+'</p><p>原始状态：'+esc(r.originalStage)+'</p>'+(r.numberWarning?'<p>原表编号为数值格式，可能已损失精度；请以 CRM 编号核实。</p>':'')+'</details>':'')+
+ '<div class="up-history"><h3>跟进历史</h3>'+(r.history?.length?[...r.history].reverse().map(h=>'<p><time>'+esc(h.date)+'</time><span>'+esc(h.text)+'</span></p>').join(''):'<p class="minor">暂无跟进记录</p>')+'</div>';
+ element('up-form-error').textContent='';element('up-dialog').showModal();
+}
+async function upSave(event){event.preventDefault();const form=event.target;const btn=element('up-save');btn.disabled=true;try{
+ const values=Object.fromEntries(new FormData(form));const old=up.editing;const record={...old,...values,archived:form.elements.archived.checked};delete record.newHistory;delete record.historyDate;
+ record.history=[...(old.history||[]),...(values.newHistory.trim()?[{date:values.historyDate,text:values.newHistory.trim()}]:[])];
+ const result=await upRequest(old.id?'PUT':'POST',{id:old.id,revision:old.revision||0,record});
+ up.rows=up.rows.filter(r=>r.id!==result.record.id).concat(result.record);element('up-dialog').close();renderUpsell();
+ }catch(e){element('up-form-error').textContent=e.message;}finally{btn.disabled=false;}}
+async function upAssign(){const owner=element('up-assign-owner').value.trim();if(!owner)return;const btn=element('up-assign');btn.disabled=true;let saved=0;try{
+ for(const id of up.selected){const r=up.rows.find(r=>r.id===id);const result=await upRequest('PUT',{id,revision:r.revision,record:{...r,owner,history:[...(r.history||[]),{date:upToday(),text:'任务负责人调整为 '+owner}]}});up.rows=up.rows.map(v=>v.id===id?result.record:v);saved++;}
+ up.selected.clear();renderUpsell();element('up-message').textContent='已分配 '+saved+' 条任务给 '+owner;
+ }catch(e){renderUpsell();element('up-message').textContent='已保存 '+saved+' 条；'+e.message;}finally{btn.disabled=false;}}
+function upExport(){const columns=[['kind','业务'],['customer','客户'],['product','产品'],['owner','负责人'],['sales','销售'],['stage','阶段'],['next','下一步'],['due','截止日期'],['progress','进展'],['newProject','新项目编号'],['activationDate','激活日期'],['importDate','导入日期'],['posDate','POS日期'],['posRef','POS编号'],['amount','金额（万人民币）'],['evidence','依据']];const quote=v=>'"'+String(v??'').replace(/^[=+@-]/,"'$&").replaceAll('"','""')+'"';const csv='\ufeff'+[columns.map(c=>quote(c[1])).join(','),...upRows().map(r=>columns.map(([k])=>quote(r[k])).join(','))].join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='Upsell_'+upLabels[up.kind]+'_'+upToday()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+function initUpsell(){
+ const el=element('upsell-board');el.innerHTML='<div class="up-heading"><div><div class="region">UPSELL · 2026 Q4</div><h2>Upsell 跟进</h2><p>主导：Yanghai · 分配任务、推进机会、跟踪产出</p></div><div>'+upButton('刷新','id="up-refresh"')+' '+upButton('导出当前筛选','id="up-export"')+'</div></div><div id="up-kpis" class="up-kpis"></div><p class="up-caption">上方进度沿用 Q4 KPI 的已确认贡献。台账用于过程跟进，核实后通过“登记贡献”计入 KPI，避免与已有贡献重复；CEC / SE 共用耳机总目标。</p><div id="up-summary" class="up-summary"></div><div class="up-tabs">'+Object.entries(upLabels).map(([k,l])=>upButton(l,'data-up-kind="'+k+'"')).join('')+'</div><section class="panel"><div class="section-title"><div><h3 id="up-description"></h3><span id="up-count" class="minor"></span></div>'+upButton('新增','id="up-add"','primary')+'</div><div class="up-toolbar"><input id="up-search" type="search" aria-label="搜索 Upsell" placeholder="搜索客户、项目、任务"><div id="up-filters"></div><label><input type="checkbox" id="up-archive"> 查看归档</label></div><div id="up-bulk" class="up-bulk" hidden><span id="up-selected"></span><input id="up-assign-owner" list="up-owners" placeholder="分配给 SE / 销售" aria-label="任务负责人"><datalist id="up-owners"><option>Yanghai</option><option>Yue</option><option>Maocheng</option></datalist>'+upButton('批量分配','id="up-assign"')+'</div><p id="up-message" role="status" aria-live="polite"></p><div id="up-list"></div></section>';
+ const dialog=document.createElement('dialog');dialog.id='up-dialog';dialog.className='up-dialog';dialog.innerHTML='<form id="up-form"><header class="up-heading"><h2 id="up-dialog-title"></h2>'+upButton('关闭','id="up-close"')+'</header><div id="up-form-body"></div><p id="up-form-error" role="alert" class="error"></p><footer><button class="primary" id="up-save" type="submit">保存跟进</button></footer></form>';document.body.append(dialog);
+ element('up-close').onclick=()=>dialog.close();element('up-form').onsubmit=upSave;
+ element('up-add').onclick=()=>upEdit();element('up-refresh').onclick=loadUpsell;element('up-export').onclick=upExport;element('up-assign').onclick=upAssign;
+ element('up-search').oninput=e=>{up.query=e.target.value;up.selected.clear();renderUpsell();};element('up-archive').onchange=e=>{up.scope=e.target.checked?'archived':'active';up.selected.clear();renderUpsell();};
+ el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.upKind){up.kind=b.dataset.upKind;up.stage='';up.product='';up.selected.clear();renderUpsell();}if(b.dataset.upEdit)upEdit(up.rows.find(r=>r.id===b.dataset.upEdit));});
+ el.addEventListener('change',e=>{const t=e.target;if(t.dataset.upFilter){up[t.dataset.upFilter]=t.value;up.selected.clear();renderUpsell();}if(t.dataset.upSelect){t.checked?up.selected.add(t.dataset.upSelect):up.selected.delete(t.dataset.upSelect);element('up-bulk').hidden=!up.selected.size;element('up-selected').textContent='已选 '+up.selected.size+' 条';}if(t.id==='up-all'){for(const r of upRows())t.checked?up.selected.add(r.id):up.selected.delete(r.id);renderUpsell();}});
+ renderUpsell();
+}
+initUpsell();
 
 const editor = element('editor');
 const form = element('record-form');
