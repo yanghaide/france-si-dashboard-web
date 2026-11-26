@@ -1,4 +1,4 @@
-import { ready, authorizedFetch } from './auth.js';
+import { ready, authorizedFetch, accessScope } from './auth.js';
 await ready();
 const projectStages = ['P0', 'P1', 'P2', 'P3', 'P4', 'P5', '丢单', '搁置', '其他'];
 const projectWinLabel = value => value === '是' ? '已赢单' : '未赢单';
@@ -833,6 +833,7 @@ function loadError(error) {
 }
 
 function showWorkspace(kind, push = false) {
+  if(typeof accessScope!=='undefined'&&accessScope==='upsell')kind='upsell';
   state.tab = kind;
   if (kind === 'upsell' && !up.loaded) loadUpsell();
   const tabs = { upsell: ['upsell-board','tab-upsell'], si: ['si-board', 'tab-si'], project: ['project-board', 'tab-projects'], consultation: ['consultation-board', 'tab-consultations'], kpi: ['kpi-board', 'tab-kpi'] };
@@ -1717,7 +1718,7 @@ function upRenderGoals(){
  if(!element('up-kpis'))return;
  const goals=state.data?.kpi?.goals||[];
  const ids=up.kind==='pos'?['service_revenue']:up.kind==='vc'?['video_active','video_import']:['headset_active'];
- element('up-kpis').innerHTML=goals.filter(g=>ids.includes(g.id)).map(g=>'<article class="up-kpi"><span>'+esc(g.name)+'</span>'+kpiProgress(g)+upButton('KPI 明细','data-kpi-open="'+g.id+'"','quiet')+(up.kind==='pos'?upButton('编辑 KPI','data-kpi-indicator-edit="'+g.id+'"','quiet'):upButton('登记贡献','data-kpi-add="'+g.id+'"','quiet'))+'</article>').join('');
+ element('up-kpis').innerHTML=goals.filter(g=>ids.includes(g.id)).map(g=>'<article class="up-kpi"><span>'+esc(g.name)+'</span>'+kpiProgress(g)+(accessScope==='upsell'?'':upButton('KPI 明细','data-kpi-open="'+g.id+'"','quiet')+(up.kind==='pos'?upButton('编辑 KPI','data-kpi-indicator-edit="'+g.id+'"','quiet'):upButton('登记贡献','data-kpi-add="'+g.id+'"','quiet')))+'</article>').join('');
  element('up-caption').textContent=up.kind==='pos'?'登记 POS 后自动计入对应 KPI；修改同一条记录会同步更新，不会重复累加。':'KPI 沿用现有已确认贡献；项目状态用于跟进，达成后可登记贡献。';
 }
 function upRows(){return up.rows.filter(r=>r.kind===up.kind&&(up.scope==='deleted'?r.deleted:!r.deleted&&(up.scope==='archived'?r.archived:!r.archived))&&(!up.query||fold([r.projectName,r.customer,r.product,r.owner,r.sales,r.stage].join(' ')).includes(fold(up.query))));}

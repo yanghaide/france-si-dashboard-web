@@ -9,10 +9,10 @@
   <script src="./app.js" type="module"></script>
 </head>
 <body><section id="login-screen" class="login-screen"><div class="login-card">
-<h1>法国 SI 推进看板</h1><form id="login-form"><label for="login-email">登录邮箱</label>
+<h1>法国 SI 推进看板</h1><form id="password-form"><label for="login-username">账号</label><input id="login-username" autocomplete="username" required placeholder="请输入账号"><label for="login-password">密码</label><input id="login-password" type="password" autocomplete="current-password" required placeholder="请输入密码"><p id="password-error" class="error" role="alert"></p><button id="password-login" type="submit" class="primary">账号密码登录</button></form><details class="email-login"><summary>邮箱登录</summary><form id="login-form"><label for="login-email">登录邮箱</label>
 <input id="login-email" type="email" autocomplete="email" required placeholder="请输入授权邮箱">
 <p id="login-hint" class="minor">通过邮箱中的一次性链接登录，在不同电脑查看和更新同一份看板。</p><p id="login-error" class="error" role="alert"></p>
-<button id="send-link" type="submit" class="primary">发送登录链接</button></form></div></section><div id="dashboard" hidden>
+<button id="send-link" type="submit" class="primary">发送登录链接</button></form></details></div></section><div id="dashboard" hidden>
   <a class="skip" href="#main">跳到客户看板</a>
   <header class="bar">
     <div class="bar-inner">

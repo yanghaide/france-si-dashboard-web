@@ -4,6 +4,7 @@ const storageKey = 'france-si-session';
 const readSession = () => { try { return JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch { return null; } };
 const storeSession = session => localStorage.setItem(storageKey, JSON.stringify(session));
 let activeRefresh;
+export let accessScope='full';
 
 async function authCall(path, body) {
   const response = await fetch(config.url + '/auth/v1/' + path, {
@@ -60,6 +61,15 @@ export async function ready() {
     error.textContent = fragment.get('error_description');
     history.replaceState(null, '', location.pathname + location.search);
   }
+  document.getElementById('password-form').addEventListener('submit',async event=>{
+    event.preventDefault();const button=document.getElementById('password-login');const message=document.getElementById('password-error');button.disabled=true;message.textContent='';
+    try{
+      const username=document.getElementById('login-username').value.trim().toLowerCase();
+      if(username!=='yealink')throw Error('账号或密码错误。');
+      const fresh=await authCall('token?grant_type=password',{email:'yealink@users.yanghai-si.invalid',password:document.getElementById('login-password').value});
+      fresh.expires_at=Date.now()/1000+fresh.expires_in;storeSession(fresh);location.hash='upsell-board';location.reload();
+    }catch(e){message.textContent='账号或密码错误，或登录暂时不可用，请重试。';}finally{button.disabled=false;}
+  });
   form.addEventListener('submit', async event => {
     event.preventDefault();
     error.textContent = '';
@@ -82,7 +92,18 @@ export async function ready() {
   });
   addEventListener('storage', event => { if (event.key === storageKey && !event.newValue) location.reload(); });
   try {
-    if (await session()) { showDashboard(); return; }
+    if (await session()) {
+      const response=await authorizedFetch('/api/session');if(!response.ok)throw Error('该账号没有看板访问权限。');
+      accessScope=(await response.json()).scope;
+      if(accessScope==='upsell'){
+        for(const id of ['tab-si','tab-projects','tab-consultations','tab-kpi'])document.getElementById(id).hidden=true;
+        document.getElementById('title').textContent='Upsell 跟进看板';
+        document.querySelector('.intro p').textContent='耳机、VC 设备与服务 Upsell 跟进。';
+        document.querySelector('.private').textContent='Upsell 专用账号';
+        location.hash='upsell-board';
+      }
+      showDashboard(); return;
+    }
   } catch { /* A cached session can be recovered by signing in again. */ }
   showLogin();
   await new Promise(() => {});
