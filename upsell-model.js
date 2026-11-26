@@ -28,7 +28,7 @@ export function cleanRecord(input,previous=null){
  const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
  if(r.kind==='pos'&&(!r.kpiId||!r.posDate||r.posDate>today||r.amount===null))throw Error('请填写 KPI、POS 金额和有效时间');
  if(!Array.isArray(input.history)||input.history.length>500)throw Error('跟进记录无效');
- r.history=input.history.map(h=>{if(typeof h.text!=='string'||h.text.length>8000||typeof h.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(h.date))throw Error('跟进记录无效');return {date:h.date,text:h.text};});
+ r.history=input.history.map(h=>{if(typeof h.text!=='string'||!h.text.trim()||h.text.length>8000||typeof h.date!=='string'||(!/^\d{4}-\d{2}-\d{2}$/.test(h.date)||Number.isNaN(Date.parse(h.date))||new Date(h.date).toISOString().slice(0,10)!==h.date))throw Error('跟进记录无效');return {date:h.date,text:h.text};});
  return r;
 }
 export function metrics(rows,today=new Date(Date.now()+8*3600000).toISOString().slice(0,10)){

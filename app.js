@@ -449,7 +449,6 @@ const icons = {
 };
 const element = id => document.getElementById(id);
 const details = element('details');
-const sourceDialog = element('sources');
 const pageSize = 14;
 const state = { ready: false, tab: 'si', active: null, trigger: null, data: null, detailHistory: [], dataVersion: 0, loadSerial: 0, pendingWrites: 0 };
 const boards = {
@@ -981,16 +980,6 @@ function flash(message) {
   noticeTimer = setTimeout(() => { notice.hidden = true; }, 7000);
 }
 
-function showSources() {
-  const data = state.data;
-  if (!data) return;
-  const scope = '<section><p><span class="small-label">原始资料</span>客户清单按负责 SE 为 Yanghai 筛选。项目资料来自本人负责项目、关联 SI 项目，以及有明确对应项目的会议或跟进记录。整理日期 ' + esc(data.asOf) + '。客户规模优先取主表「26年潜力-摸清」，空白时取「26年MTR潜力」，数值及区间按原表显示。手动值优先，可在编辑中选择使用中腰表规模。</p></section>';
-  element('sources-content').innerHTML = scope + data.sources.map(source =>
-    '<section><p><strong>' + sourceLink(source) + '</strong><br>' + esc(source.detail) + '</p></section>'
-  ).join('');
-  sourceDialog.showModal();
-}
-
 function initApp() {
   document.querySelectorAll('[data-icon]').forEach(node => { node.innerHTML = icon(node.dataset.icon); });
   for (const [kind, info] of Object.entries(boards)) {
@@ -1050,8 +1039,6 @@ function initApp() {
     const consultation = event.target.closest('[data-inline-consultation]');
     if (consultation) saveConsultationInline(consultation);
   });
-  element('sources-trigger').addEventListener('click', showSources);
-  element('sources-close').addEventListener('click', () => sourceDialog.close());
 
   document.addEventListener('click', event => {
     const button = event.target.closest('button');
@@ -1719,7 +1706,7 @@ function initKpiIndicatorEditor() {
 }
 
 import { stages as upStages, labels as upLabels, metrics as upMetrics, projectKey as upKey, groupProjects as upGroups } from './upsell-model.js';
-const up={rows:[],loaded:false,busy:false,kind:'vc',query:'',scope:'active',editing:null};
+const up={rows:[],loaded:false,busy:false,kind:'vc',query:'',scope:'active',editing:null,following:false};
 const upOwners=['Yanghai','Yue','Maocheng'];
 const upToday=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const upButton=(text,attrs='',css='outline')=>'<button type="button" class="'+css+'" '+attrs+'>'+text+'</button>';
@@ -1732,22 +1719,24 @@ function upRenderGoals(){
  element('up-kpis').innerHTML=goals.filter(g=>ids.includes(g.id)).map(g=>'<article class="up-kpi"><span>'+esc(g.name)+'</span>'+kpiProgress(g)+upButton('KPI 明细','data-kpi-open="'+g.id+'"','quiet')+(up.kind==='pos'?upButton('编辑 KPI','data-kpi-indicator-edit="'+g.id+'"','quiet'):upButton('登记贡献','data-kpi-add="'+g.id+'"','quiet'))+'</article>').join('');
  element('up-caption').textContent=up.kind==='pos'?'登记 POS 后自动计入对应 KPI；修改同一条记录会同步更新，不会重复累加。':'KPI 沿用现有已确认贡献；项目状态用于跟进，达成后可登记贡献。';
 }
-function upRows(){return up.rows.filter(r=>r.kind===up.kind&&(up.scope==='archived'?r.archived:!r.archived)&&(!up.query||fold([r.projectName,r.customer,r.product,r.owner,r.sales,r.stage].join(' ')).includes(fold(up.query))));}
+function upRows(){return up.rows.filter(r=>r.kind===up.kind&&(up.scope==='deleted'?r.deleted:!r.deleted&&(up.scope==='archived'?r.archived:!r.archived))&&(!up.query||fold([r.projectName,r.customer,r.product,r.owner,r.sales,r.stage].join(' ')).includes(fold(up.query))));}
 function upTasks(key,scope=up.kind){return up.rows.filter(r=>r.kind==='task'&&r.scope===scope&&(r.groupId||'')===key&&!r.archived);}
 function upTaskList(key,owner='',scope=up.kind){
  const tasks=upTasks(key,scope);return '<div class="up-tasks"><div class="up-task-title"><strong>待办</strong>'+upButton('＋ 添加待办','data-up-task-add="'+esc(key)+'" data-up-owner="'+esc(owner)+'"','quiet')+'</div>'+(tasks.length?tasks.map(t=>'<div class="up-task-row"><input type="checkbox" data-up-done="'+esc(t.id)+'" aria-label="完成待办 '+esc(t.content)+'"'+(t.stage==='完成'?' checked':'')+'><div class="'+(t.stage==='完成'?'up-done':'')+'">'+upButton(esc(t.content),'data-up-edit="'+esc(t.id)+'"','name-link')+'<span class="minor '+(t.due<upToday()&&t.stage!=='完成'?'up-overdue':'')+'">'+esc(t.due)+' · '+esc(t.owner)+'</span></div></div>').join(''):'<p class="minor">暂无待办</p>')+'</div>';
 }
-function upStageSelect(r){const options=[...new Set([r.stage,...upStages[r.kind]])].filter(Boolean);return '<select class="up-inline-stage" data-up-stage="'+esc(r.id)+'" aria-label="'+esc(r.customer+' '+(r.product||r.projectName||'')+' 状态')+'">'+options.map(s=>'<option'+(s===r.stage?' selected':'')+'>'+esc(s)+'</option>').join('')+'</select>';}
-function upProjectCard(g){const first=g.rows[0];return '<article class="up-project-card"><header><div><h4>'+esc(g.name)+'</h4><p class="minor">'+esc(g.customer)+'</p></div>'+(up.kind==='vc'?upButton('＋ 产品','data-up-product-add="'+esc(first.id)+'"','quiet'):upButton('编辑','data-up-edit="'+esc(first.id)+'"','quiet'))+'</header>'+
- (up.kind==='vc'?'<div class="up-products">'+g.rows.map(r=>'<div><div>'+upButton(esc(r.product||'未填产品'),'data-up-edit="'+esc(r.id)+'"','name-link')+'</div>'+upStageSelect(r)+'</div>').join('')+'</div>':upStageSelect(first))+
- upTaskList(g.key,g.owner)+'</article>';}
+function upStageSelect(r){if(r.deleted)return '<span class="minor">已删除</span>'; const options=[...new Set([r.stage,...upStages[r.kind]])].filter(Boolean);return '<select class="up-inline-stage" data-up-stage="'+esc(r.id)+'" aria-label="'+esc(r.customer+' '+(r.product||r.projectName||'')+' 状态')+'">'+options.map(s=>'<option'+(s===r.stage?' selected':'')+'>'+esc(s)+'</option>').join('')+'</select>';}
+function upHistory(r){const history=r.history||[];return '<details class="up-followups"><summary>跟进记录（'+history.length+'）</summary>'+(history.length?[...history].reverse().map(h=>'<p><time>'+esc(h.date)+'</time><span>'+esc(h.text)+'</span></p>').join(''):'<p class="minor">暂无跟进记录</p>')+'</details>'+(r.deleted?'':upButton('＋ 跟进记录','data-up-follow="'+esc(r.id)+'"','quiet'));}
+function upRemoveButton(r){return upButton(r.deleted?'恢复':r.kind==='vc'?'删除产品':'删除项目','data-up-remove="'+esc(r.id)+'"','quiet up-remove');}
+function upProjectCard(g){const first=g.rows[0];return '<article class="up-project-card"><header><div><h4>'+esc(g.name)+'</h4><p class="minor">'+esc(g.customer)+'</p></div>'+(up.kind==='vc'?(first.deleted?'':upButton('＋ 产品','data-up-product-add="'+esc(first.id)+'"','quiet')):(first.deleted?'':upButton('编辑','data-up-edit="'+esc(first.id)+'"','quiet')))+ (up.kind==='se'?upRemoveButton(first):'')+'</header>'+
+ (up.kind==='vc'?'<div class="up-products">'+g.rows.map(r=>'<div><div class="up-product-heading">'+(r.deleted?esc(r.product):upButton(esc(r.product||'未填产品'),'data-up-edit="'+esc(r.id)+'"','name-link'))+upRemoveButton(r)+'</div>'+upStageSelect(r)+upHistory(r)+'</div>').join('')+'</div>':upStageSelect(first)+upHistory(first))+
+ (first.deleted?'':upTaskList(g.key,g.owner))+'</article>';}
 function renderUpsell(){if(!element('up-list'))return;upRenderGoals();document.querySelectorAll('[data-up-kind]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.upKind===up.kind));b.classList.toggle('primary',b.dataset.upKind===up.kind);});
  const rs=upRows();const groups=upGroups(rs);element('up-add').hidden=['vc','se'].includes(up.kind);element('up-add').textContent=up.kind==='pos'?'＋ 登记 POS':'＋ 添加项目';
  let html='';if(['vc','se'].includes(up.kind)){
   const owners=[...upOwners,...new Set(groups.map(g=>g.owner||'未分配').filter(o=>!upOwners.includes(o)))];
   html='<div class="up-owner-grid">'+owners.map(owner=>{const items=groups.filter(g=>(g.owner||'未分配')===owner);return '<section class="up-owner-module"><header><h3>'+esc(owner)+' <small>'+items.length+' 个项目</small></h3>'+upButton('＋ 项目','data-up-add-owner="'+esc(owner==='未分配'?'':owner)+'"','outline')+'</header><div class="up-owner-body">'+(items.length?items.map(upProjectCard).join(''):'<div class="empty">暂无项目</div>')+'</div></section>';}).join('')+'</div>';
  }else if(up.kind==='cec'){
-  html='<div class="up-cec-grid">'+rs.map(r=>'<article class="up-project-card"><header><h3>'+esc(r.projectName||r.customer)+'</h3>'+upButton('编辑','data-up-edit="'+esc(r.id)+'"','quiet')+'</header><p class="minor">客户：'+esc(r.customer)+' · 销售：'+esc(r.sales||'未填写')+' · 时间：'+esc(r.recordDate||r.visitDate||'未填写')+'</p>'+upStageSelect(r)+upTaskList(upKey(r),r.sales||r.owner)+'</article>').join('')+'</div>';
+  html='<div class="up-cec-grid">'+rs.map(r=>'<article class="up-project-card"><header><h3>'+esc(r.projectName||r.customer)+'</h3>'+upButton('编辑','data-up-edit="'+esc(r.id)+'"','quiet')+'</header><p class="minor">客户：'+esc(r.customer)+' · 销售：'+esc(r.sales||'未填写')+' · 时间：'+esc(r.recordDate||r.visitDate||'未填写')+'</p>'+upStageSelect(r)+upHistory(r)+upTaskList(upKey(r),r.sales||r.owner)+'</article>').join('')+'</div>';
   if(!rs.length)html='<div class="empty">暂无项目，点击“添加项目”开始跟进。</div>';
  }else{
   const goals=state.data?.kpi?.goals||[];html='<section class="panel"><div class="up-table-scroll"><table class="up-table up-pos-table"><thead><tr><th>KPI</th><th>POS（万人民币）</th><th>时间</th><th></th></tr></thead><tbody>'+rs.sort((a,b)=>(b.posDate||'').localeCompare(a.posDate||'')).map(r=>'<tr><td>'+esc(goals.find(g=>g.id===(r.kpiId||'service_revenue'))?.name||'服务销售额')+'</td><td>'+kpiNumber(r.amount||0)+'</td><td>'+esc(r.posDate)+'</td><td>'+upButton('编辑','data-up-edit="'+esc(r.id)+'"','quiet')+'</td></tr>').join('')+'</tbody></table></div>'+(!rs.length?'<div class="empty">暂无 POS 登记</div>':'')+'</section><section class="panel up-service-tasks">'+upTaskList('','','pos')+'</section>';
@@ -1756,6 +1745,7 @@ function renderUpsell(){if(!element('up-list'))return;upRenderGoals();document.q
 }
 function upField(key,label,value='',type='text',options){return '<label class="up-field'+(type==='textarea'?' up-wide':'')+'"><span>'+label+'</span>'+(options?'<select name="'+key+'">'+options.map(o=>{const [v,l]=Array.isArray(o)?o:[o,o];return '<option value="'+esc(v)+'"'+(v===value?' selected':'')+'>'+esc(l)+'</option>';}).join('')+'</select>':type==='textarea'?'<textarea name="'+key+'" rows="3">'+esc(value)+'</textarea>':'<input name="'+key+'" type="'+type+'" value="'+esc(value??'')+'"'+(type==='number'?' step="any"':'')+'>')+'</label>';}
 function upEdit(row,defaults={}){
+ up.following=false;
  const r=row?structuredClone(row):{kind:up.kind,stage:up.kind==='vc'?upStages.vc[3]:upStages[up.kind][0],owner:'Yanghai',history:[],...defaults};
  if(r.kind==='pos'){r.stage='已确认';r.kpiId||='service_revenue';r.posDate||=upToday();}
  if(['vc','se','cec'].includes(r.kind)){r.groupId||=row?upKey(row):crypto.randomUUID();r.projectName||=r.customer||'';}
@@ -1768,13 +1758,15 @@ function upEdit(row,defaults={}){
  element('up-dialog-title').textContent=(row?'编辑':'添加')+(r.kind==='task'?'待办':r.kind==='pos'?' POS':r.kind==='vc'?'项目 / 产品':'项目');element('up-form-error').textContent='';element('up-dialog').showModal();
 }
 async function upPersist(old,changes){const result=await upRequest(old.id?'PUT':'POST',{id:old.id,revision:old.revision||0,record:{...old,...changes}});up.rows=up.rows.filter(r=>r.id!==result.record.id).concat(result.record);return result.record;}
-async function upSave(event){event.preventDefault();const button=element('up-save');button.disabled=true;try{const form=event.target;const values=Object.fromEntries(new FormData(form));if(form.elements.archived)values.archived=form.elements.archived.checked;await upPersist(up.editing,values);element('up-dialog').close();renderUpsell();if(up.editing.kind==='vc')await loadUpsell();if(up.editing.kind==='pos')loadBoard().catch(loadError);}catch(e){element('up-form-error').textContent=e.message;}finally{button.disabled=false;}}
+function upFollow(row){up.editing=structuredClone(row);up.following=true;element('up-dialog-title').textContent='添加跟进 · '+(row.kind==='vc'?row.product:row.projectName||row.customer);element('up-form-body').innerHTML='<div class="up-form-grid">'+upField('followDate','时间',upToday(),'date')+upField('followText','内容','','textarea')+'</div>';element('up-form-error').textContent='';element('up-dialog').showModal();}
+async function upSave(event){event.preventDefault();const button=element('up-save');button.disabled=true;try{const form=event.target;let values=Object.fromEntries(new FormData(form));if(up.following){if(!values.followDate||!values.followText.trim())throw Error('请填写跟进时间和内容');values={history:[...(up.editing.history||[]),{date:values.followDate,text:values.followText.trim()}]};}else if(form.elements.archived)values.archived=form.elements.archived.checked;await upPersist(up.editing,values);element('up-dialog').close();renderUpsell();if(up.editing.kind==='vc')await loadUpsell();if(up.editing.kind==='pos')loadBoard().catch(loadError);}catch(e){element('up-form-error').textContent=e.message;}finally{button.disabled=false;}}
+async function upRemove(row,button){const restore=Boolean(row.deleted);if(!restore&&!confirm(row.kind==='vc'?'删除“'+row.product+'”？仅移除此产品，其他产品和项目待办保留，可在已删除中恢复。':'删除“'+(row.projectName||row.customer)+'”？可在已删除中恢复，跟进记录会保留。'))return;button.disabled=true;try{const result=await upRequest(restore?'PATCH':'DELETE',{id:row.id,revision:row.revision});up.rows=up.rows.map(r=>r.id===row.id?result.record:r);renderUpsell();element('up-message').textContent=restore?'已恢复':'已删除，可切换到“已删除”恢复。';}catch(e){element('up-message').textContent=e.message;}finally{button.disabled=false;}}
 async function upInline(control,changes){control.disabled=true;const old=up.rows.find(r=>r.id===(control.dataset.upStage||control.dataset.upDone));try{await upPersist(old,changes);renderUpsell();}catch(e){if(control.dataset.upStage)control.value=old.stage;else control.checked=old.stage==='完成';element('up-message').textContent=e.message;}finally{control.disabled=false;}}
-function initUpsell(){element('upsell-board').innerHTML='<div class="up-heading"><div><h2>Upsell 跟进</h2><p>项目 · 产品状态 · 待办</p></div>'+upButton('刷新','id="up-refresh"')+'</div><div class="up-tabs">'+Object.entries(upLabels).map(([k,l])=>upButton(l,'data-up-kind="'+k+'"')).join('')+'</div><div id="up-kpis" class="up-kpis"></div><p id="up-caption" class="up-caption"></p><div class="up-toolbar"><input id="up-search" type="search" aria-label="搜索 Upsell" placeholder="搜索项目或客户"><span id="up-count" class="minor"></span><label><input type="checkbox" id="up-archive"> 查看归档</label>'+upButton('＋ 添加项目','id="up-add"','primary')+'</div><p id="up-message" role="status"></p><div id="up-list"></div>';
+function initUpsell(){element('upsell-board').innerHTML='<div class="up-heading"><div><h2>Upsell 跟进</h2><p>项目 · 产品状态 · 待办</p></div>'+upButton('刷新','id="up-refresh"')+'</div><div class="up-tabs">'+Object.entries(upLabels).map(([k,l])=>upButton(l,'data-up-kind="'+k+'"')).join('')+'</div><div id="up-kpis" class="up-kpis"></div><p id="up-caption" class="up-caption"></p><div class="up-toolbar"><input id="up-search" type="search" aria-label="搜索 Upsell" placeholder="搜索项目或客户"><span id="up-count" class="minor"></span><select id="up-scope" aria-label="记录范围"><option value="active">当前记录</option><option value="archived">已归档</option><option value="deleted">已删除</option></select>'+upButton('＋ 添加项目','id="up-add"','primary')+'</div><p id="up-message" role="status"></p><div id="up-list"></div>';
  const dialog=document.createElement('dialog');dialog.id='up-dialog';dialog.className='up-dialog';dialog.innerHTML='<form id="up-form"><header class="up-heading"><h2 id="up-dialog-title"></h2>'+upButton('关闭','id="up-close"')+'</header><div id="up-form-body"></div><p id="up-form-error" role="alert" class="error"></p><footer><button class="primary" id="up-save" type="submit">保存</button></footer></form>';document.body.append(dialog);
  element('up-close').onclick=()=>dialog.close();element('up-form').onsubmit=upSave;element('up-refresh').onclick=loadUpsell;element('up-add').onclick=()=>upEdit();
- element('up-search').oninput=e=>{up.query=e.target.value;renderUpsell();};element('up-archive').onchange=e=>{up.scope=e.target.checked?'archived':'active';renderUpsell();};
- element('upsell-board').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if(d.upKind){up.kind=d.upKind;up.query='';element('up-search').value='';renderUpsell();}if(d.upEdit)upEdit(up.rows.find(r=>r.id===d.upEdit));if(d.upAddOwner!==undefined)upEdit(null,{owner:d.upAddOwner});if(d.upProductAdd){const r=up.rows.find(r=>r.id===d.upProductAdd);upEdit(null,{customer:r.customer,projectName:r.projectName||r.customer,owner:r.owner,groupId:upKey(r)});}if(d.upTaskAdd!==undefined)upEdit(null,{kind:'task',stage:'待办',scope:up.kind,groupId:d.upTaskAdd,owner:d.upOwner,due:upToday()});});
+ element('up-search').oninput=e=>{up.query=e.target.value;renderUpsell();};element('up-scope').onchange=e=>{up.scope=e.target.value;renderUpsell();};
+ element('upsell-board').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if(d.upKind){up.kind=d.upKind;up.query='';element('up-search').value='';renderUpsell();}if(d.upFollow)upFollow(up.rows.find(r=>r.id===d.upFollow));if(d.upRemove)upRemove(up.rows.find(r=>r.id===d.upRemove),b);if(d.upEdit)upEdit(up.rows.find(r=>r.id===d.upEdit));if(d.upAddOwner!==undefined)upEdit(null,{owner:d.upAddOwner});if(d.upProductAdd){const r=up.rows.find(r=>r.id===d.upProductAdd);upEdit(null,{customer:r.customer,projectName:r.projectName||r.customer,owner:r.owner,groupId:upKey(r)});}if(d.upTaskAdd!==undefined)upEdit(null,{kind:'task',stage:'待办',scope:up.kind,groupId:d.upTaskAdd,owner:d.upOwner,due:upToday()});});
  element('upsell-board').addEventListener('change',e=>{const t=e.target;if(t.dataset.upStage)upInline(t,{stage:t.value});if(t.dataset.upDone)upInline(t,{stage:t.checked?'完成':'待办'});});renderUpsell();
 }
 initUpsell();
