@@ -1,4 +1,4 @@
-import { ready, authorizedFetch, accessScope } from './auth.js';
+import { ready, authorizedFetch, accessScope, canDeleteRecords } from './auth.js';
 await ready();
 const projectStages = ['P0', 'P1', 'P2', 'P3', 'P4', 'P5', '丢单', '搁置', '其他'];
 const projectWinLabel = value => value === '是' ? '已赢单' : '未赢单';
@@ -1728,8 +1728,8 @@ function upTaskList(key,owner='',scope=up.kind){
 }
 function upStageSelect(r){if(r.deleted)return '<span class="minor">已删除</span>'; const options=[...new Set([r.stage,...upStages[r.kind]])].filter(Boolean);return '<select class="up-inline-stage" data-up-stage="'+esc(r.id)+'" aria-label="'+esc(r.customer+' '+(r.product||r.projectName||'')+' 状态')+'">'+options.map(s=>'<option'+(s===r.stage?' selected':'')+'>'+esc(s)+'</option>').join('')+'</select>';}
 function upHistory(r){const history=r.history||[];return '<details class="up-followups"><summary>跟进记录（'+history.length+'）</summary>'+(history.length?[...history].reverse().map(h=>'<p><time>'+esc(h.date)+'</time><span>'+esc(h.text)+'</span></p>').join(''):'<p class="minor">暂无跟进记录</p>')+'</details>'+(r.deleted?'':upButton('＋ 跟进记录','data-up-follow="'+esc(r.id)+'"','quiet'));}
-function upRemoveButton(r){return upButton(r.deleted?'恢复':r.kind==='vc'?'删除产品':'删除项目','data-up-remove="'+esc(r.id)+'"','quiet up-remove');}
-function upProjectButtons(r){return r.deleted?(r.projectDeleted?upButton('恢复项目','data-up-project="'+esc(r.id)+'" data-up-action="restore"','quiet'):''):upButton(r.archived?'取消项目归档':'归档项目','data-up-project="'+esc(r.id)+'" data-up-action="'+(r.archived?'unarchive':'archive')+'"','quiet')+upButton('删除项目','data-up-project="'+esc(r.id)+'" data-up-action="delete"','quiet up-remove');}
+function upRemoveButton(r){if(!r.deleted&&!canDeleteRecords)return '';return upButton(r.deleted?'恢复':r.kind==='vc'?'删除产品':'删除项目','data-up-remove="'+esc(r.id)+'"','quiet up-remove');}
+function upProjectButtons(r){return r.deleted?(r.projectDeleted?upButton('恢复项目','data-up-project="'+esc(r.id)+'" data-up-action="restore"','quiet'):''):upButton(r.archived?'取消项目归档':'归档项目','data-up-project="'+esc(r.id)+'" data-up-action="'+(r.archived?'unarchive':'archive')+'"','quiet')+(canDeleteRecords?upButton('删除项目','data-up-project="'+esc(r.id)+'" data-up-action="delete"','quiet up-remove'):'');}
 async function upProjectAction(row,action,button){
  const key=upKey(row);const records=up.rows.filter(r=>(r.kind==='vc'&&upKey(r)===key)||(r.kind==='task'&&r.scope==='vc'&&r.groupId===key));
  if(action==='delete'&&!confirm('删除项目“'+(row.projectName||row.customer)+'”及其全部产品和待办？跟进记录保留，可在“已删除”中恢复项目。'))return;
